@@ -71,7 +71,7 @@ Each accepts:
 ### Special Services
 
 **`FaceEmbeddingService`** — Standalone (no inheritance from `ModelService`):
-- Uses InsightFace's built-in model downloading
+- Uses AuraFace OR InsightFace's Buffalo_l built-in model downloading based on the flag ML_SERVICE_FACE_MODEL set in .env
 - No Hugging Face configuration needed
 - Takes: `embedding_dim`, `detection_size`, `facial_area_threshold`, `device`
 

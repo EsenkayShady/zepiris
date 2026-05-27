@@ -1,4 +1,4 @@
-"""Face embedding service using InsightFace (buffalo_l)."""
+"""Face embedding service using InsightFace."""
 
 from __future__ import annotations
 
@@ -9,14 +9,16 @@ from insightface.app.common import Face
 from zepiris.ml_inference.base import ModelService, ModelServiceConfig
 from zepiris.schemas.ml_inference import FaceEmbeddingResult
 
+SUPPORTED_FACE_MODELS = ("auraface", "buffalo_l")
+
 
 class FaceEmbeddingService(ModelService):
-    """Face embedding service using InsightFace buffalo_l model.
+    """Face embedding service using InsightFace.
 
+    Supports AuraFace (default) and buffalo_l models.
     Uses InsightFace FaceAnalysis for detection + recognition.
     Selects the most central face that exceeds a minimum area threshold.
     Returns a 512-d normalized embedding vector.
-    InsightFace handles model downloading via its own default mechanism.
     """
 
     def __init__(
@@ -25,18 +27,25 @@ class FaceEmbeddingService(ModelService):
         detection_size: tuple[int, int] = (640, 640),
         facial_area_threshold: float = 0.01,
         device: str = "cpu",
+        face_model: str = "auraface",
     ) -> None:
         """Initialize face embedding service.
 
         Args:
-            embedding_dim: Expected embedding dimension (default 512 for buffalo_l)
+            embedding_dim: Expected embedding dimension (default 512)
             detection_size: Face detection size as (width, height) tuple
             facial_area_threshold: Minimum face area as fraction of image area
-            device: Inference device ("cpu" or "cuda")
+            device: Inference device (for now only "cpu" is supported)
+            face_model: Model to use from SUPPORTED_FACE_MODELS
         """
+        if face_model not in SUPPORTED_FACE_MODELS:
+            raise ValueError(
+                f"Unsupported face model '{face_model}'. Choose from: {SUPPORTED_FACE_MODELS}"
+            )
         self._embedding_dim = embedding_dim
         self._detection_size = detection_size
         self._facial_area_threshold = facial_area_threshold
+        self._face_model = face_model
         self._face_app: FaceAnalysis | None = None
         config = ModelServiceConfig(
             model_name="face_embedding",
@@ -44,8 +53,14 @@ class FaceEmbeddingService(ModelService):
         )
         super().__init__(config)
 
+    def _download_auraface(self) -> None:
+        """Download AuraFace weights from HuggingFace Hub if not present."""
+        from huggingface_hub import snapshot_download
+
+        snapshot_download("fal/AuraFace-v1", local_dir="models/auraface")
+
     def load_model(self) -> FaceAnalysis:
-        """Initialize InsightFace FaceAnalysis with buffalo_l model.
+        """Initialize InsightFace FaceAnalysis with the configured model.
 
         Returns:
             FaceAnalysis: Prepared model with detection + recognition only
@@ -54,9 +69,27 @@ class FaceEmbeddingService(ModelService):
             return self._face_app
 
         ctx_id = 0 if self.config.device != "cpu" else -1
-        app = FaceAnalysis(name="buffalo_l")
+
+        if self._face_model == "auraface":
+            self._download_auraface()
+            app = FaceAnalysis(
+                name="auraface",
+                root=".",
+                allowed_modules=["detection", "recognition"],
+                providers=["CPUExecutionProvider"],
+            )
+        elif self._face_model == "buffalo_l":
+            app = FaceAnalysis(
+                name="buffalo_l",
+                allowed_modules=["detection", "recognition"],
+                providers=["CPUExecutionProvider"],
+            )
+        else:
+            raise ValueError(
+                f"Unsupported face model '{self._face_model}'. Choose from: {SUPPORTED_FACE_MODELS}"
+            )
+
         app.prepare(ctx_id=ctx_id, det_size=self._detection_size)
-        app.models = {k: v for k, v in app.models.items() if k in ("detection", "recognition")}
 
         self._face_app = app
         return self._face_app

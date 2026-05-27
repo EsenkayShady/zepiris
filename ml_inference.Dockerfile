@@ -1,4 +1,4 @@
-# ML inference service — PyTorch + InsightFace. Local dev: `poetry install --extras ml`.
+# ML inference service — PyTorch + AuraFace/Buffalo_l. Local dev: `poetry install --extras ml`.
 # Build: docker build -f ml_inference.Dockerfile -t zepiris-ml-service .
 #
 # Runtime deps (including torch) come from poetry.lock. Place model weights in models/
@@ -18,7 +18,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# OpenCV / InsightFace runtime libs + g++ for native wheels + curl for HEALTHCHECK
+# OpenCV / AuraFace / Buffalo_l runtime libs + g++ for native wheels + curl for HEALTHCHECK
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         curl \
@@ -27,7 +27,7 @@ RUN apt-get update \
         libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml poetry.lock poetry.toml README.md ./
+COPY pyproject.toml poetry.lock poetry.toml README.md .env ./
 COPY zepiris/ zepiris/
 
 ARG POETRY_VERSION=2.1.3

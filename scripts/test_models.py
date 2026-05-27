@@ -180,7 +180,7 @@ def main() -> None:
     parser.add_argument(
         "--skip-face-embedding",
         action="store_true",
-        help="Skip face embedding test (requires insightface)",
+        help="Skip face embedding test (requires AuraFace OR Buffalo_l)",
     )
 
     args = parser.parse_args()

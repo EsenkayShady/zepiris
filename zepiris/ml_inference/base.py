@@ -34,7 +34,7 @@ class ModelService:
 
     Defines the preprocess → predict → postprocess pipeline with a concrete
     ``forward`` method.  Subclasses that load PyTorch weights from Hugging Face
-    can reuse ``_download_model``; others (e.g. InsightFace) override
+    can reuse ``_download_model``; others (e.g. AuraFace OR Buffalo_l) override
     ``load_model`` entirely.
 
     Subclasses must implement:

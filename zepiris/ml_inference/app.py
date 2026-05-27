@@ -62,6 +62,7 @@ class MLServiceSettings(BaseSettings):
     blur_local_model_path: str = "/app/models/blur_model.pth"
     blur_threshold: float = 0.5
 
+    face_model: str = "auraface"
     face_embedding_dim: int = 512
     face_detection_width: int = 640
     face_detection_height: int = 640
@@ -135,6 +136,7 @@ async def lifespan(app: FastAPI):
             detection_size=(s.face_detection_width, s.face_detection_height),
             facial_area_threshold=s.face_area_threshold,
             device=device,
+            face_model=s.face_model,
         )
         app.state.face_embedding_service.load_model()
     except Exception:

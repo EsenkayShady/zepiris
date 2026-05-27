@@ -11,7 +11,7 @@ ML Inference Service (port 8001)
     ├─ NSFW Detection (MobileNetV2)
     ├─ Spoof Detection (MobileNetV3)
     ├─ Blur Detection (ResNet18)
-    └─ Face Embedding (InsightFace)
+    └─ Face Embedding (AuraFace OR Buffalo_l based on the flag ML_SERVICE_FACE_MODEL set in .env)
 ```
 
 ## Files
@@ -137,7 +137,11 @@ ML_SERVICE_BLUR_HF_MODEL_FILE=blur_model.pth
 ML_SERVICE_BLUR_LOCAL_MODEL_PATH=/app/models/blur_model.pth
 ML_SERVICE_BLUR_THRESHOLD=0.5
 
-# Face embedding (InsightFace — downloads its own model on first startup)
+# Face embedding (AuraFace OR Buffalo_l — downloads its own model on first startup)
+ML_SERVICE_FACE_MODEL=auraface
+# Setting this to "auraface" uses fal/AuraFace-v1 model for face detection and embedding generation. Other acceptable value: "buffalo_l" sets the model to InsightFace's buffalo_l.
+# NOTE: The use of InsightFace's buffalo_l model weights are licensed for non-commercial research purposes only. Commercial use requires a separate license. Contact: recognition-oss-pack@insightface.ai
+
 ML_SERVICE_FACE_EMBEDDING_DIM=512
 ML_SERVICE_FACE_DETECTION_WIDTH=640
 ML_SERVICE_FACE_DETECTION_HEIGHT=640
@@ -192,7 +196,7 @@ The loading logic lives in `model_loading.py` and is called by the `ModelService
 1. **NSFW model** loaded (per `ML_SERVICE_NSFW_MODEL_SOURCE`)
 2. **Spoof model** loaded (per `ML_SERVICE_SPOOF_MODEL_SOURCE`)
 3. **Blur model** loaded (per `ML_SERVICE_BLUR_MODEL_SOURCE`)
-4. **Face embedding model** loaded (InsightFace's built-in mechanism)
+4. **Face embedding model** loaded (AuraFace OR InsightFace's Buffalo_l built-in mechanism based on the flag ML_SERVICE_FACE_MODEL set in .env)
 5. **IQA service** created — reuses the already-loaded NSFW/spoof/blur service instances (no redundant model loading)
 
 When a request arrives, all models are already in memory and inference begins immediately.

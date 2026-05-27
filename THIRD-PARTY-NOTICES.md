@@ -105,6 +105,12 @@ TorchVision
   URL: https://github.com/pytorch/vision
   Copyright (c) 2016-present Soumith Chintala
 
+AuraFace-v1
+  Version: 1.0
+  License: Apache-2.0
+  URL: https://huggingface.co/fal/AuraFace-v1
+  Copyright (c) fal
+
 InsightFace
   Version range: >=0.7.3
   License: MIT (source code only)

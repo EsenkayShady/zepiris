@@ -48,7 +48,7 @@ def _face_embedding(request: Request) -> FaceEmbeddingService:
         "face_embedding",
         request.app.state.face_embedding_service,
         hint=(
-            "Face embedding model (insightface / detection) failed to load. "
+            "Face embedding model (AuraFace / Buffalo_l / detection) failed to load. "
             "See ML container startup logs."
         ),
     )

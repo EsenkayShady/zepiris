@@ -5,13 +5,13 @@
 [![Poetry](https://img.shields.io/badge/Poetry-2.x-blueviolet)](https://python-poetry.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## 👁️ ZepIris — Face Authentication at Scale
+## 👁️ ZepIris — Scalable Face Authentication
 
 **No OTPs. No registers. No buddy punching. Just a selfie.**
 
 ZepIris is Zepto's purpose-built face authentication platform — open-sourced for teams running identity verification at operational scale.
 
-It handles the full pipeline: face detection, embedding generation, vector search, and spoof/blur/nudity flagging. Designed to work on budget smartphones, in low light, under high concurrency.
+It handles the full pipeline: face detection, embedding generation, vector search, and spoof/blur/nsfw flagging. Designed to work on budget smartphones, in low light, under high concurrency.
 
 If you're running attendance or identity workflows at scale and don't want to stitch together multiple vendors, this is it.
 
@@ -43,9 +43,9 @@ If you're running attendance or identity workflows at scale and don't want to st
 
 ZepIris simplifies face recognition and verification workflows by providing:
 
-- **Pre-integrated face embeddings** using InsightFace's buffalo_l model (512-dimensional vectors)
+- **Pre-integrated face embeddings** using AuraFace-v1 OR InsightFace's buffalo_l model, both are 512-dimensional representations, based on the flag ML_SERVICE_FACE_MODEL set in .env
 - **1-to-N face vector search** via Milvus for fast COSINE similarity matching
-- **Automated content safety checks**: nudity detection, anti-spoofing, blur detection — all via a dedicated ML inference service
+- **Automated content safety checks**: nsfw detection, anti-spoofing, blur detection — all via a dedicated ML inference service
 - **Multi-tenant support** — per-tenant face enrollment and search with isolated namespaces
 - **Full CRUD operations** — insert, upsert, delete, and get for face records
 - **Production-ready microservice architecture** with independent scaling for ML inference
@@ -66,16 +66,16 @@ ZepIris simplifies face recognition and verification workflows by providing:
 
 | Capability                    | Description                                                                              |
 | ----------------------------- | ---------------------------------------------------------------------------------------- |
-| **Face Embedding**            | Extract 512-dimensional L2-normalized embeddings using InsightFace buffalo_l             |
+| **Face Embedding**            | Extract 512-dimensional Normalized embeddings using AuraFace-v1 OR InsightFace's buffalo_l             |
 | **1-to-N Face Search**        | Query vectors against Milvus for fast COSINE similarity matching                         |
 | **Full CRUD API**             | Insert, upsert, delete, and retrieve face records with multi-tenant isolation            |
-| **Content Safety (ML)**       | Nudity, spoof/deepfake, and blur detection via dedicated ML inference microservice       |
+| **Content Safety (ML)**       | NSFW, spoof/deepfake, and blur detection via dedicated ML inference microservice       |
 | **Multi-Tenant**              | Per-tenant face enrollment and search with isolated namespaces                           |
 | **Microservice Architecture** | Separate ML inference service (port 8001) scales independently from main API (port 8000) |
 | **Image Storage**             | S3-compatible MinIO integration for persistent image archival                            |
 | **REST API**                  | FastAPI with OpenAPI/Swagger docs, `requestId` on every response                         |
 | **Docker Ready**              | Multi-stage Dockerfiles for both services + Docker Compose with all dependencies         |
-| **Configurable Thresholds**   | Fine-tune quality checks (blur sensitivity, spoof threshold, nudity confidence)          |
+| **Configurable Thresholds**   | Fine-tune quality checks (blur sensitivity, spoof threshold, NSFW confidence)          |
 
 
 ---
@@ -109,7 +109,7 @@ ZepIris consists of **two independent FastAPI microservices** that communicate v
       ┌────────────────────▼───────────────────┐
       │ ML Inference (port 8001)                │
       │ ├─ POST /v1/embed   (Face Embedding)    │
-      │ ├─ POST /v1/nudity  (Nudity Detection)  │
+      │ ├─ POST /v1/NSFW  (NSFW Detection)  │
       │ ├─ POST /v1/spoof   (Spoof Detection)   │
       │ ├─ POST /v1/blur    (Blur Detection)     │
       │ └─ POST /v1/assess  (Combined IQA)      │
@@ -139,8 +139,8 @@ ZepIris consists of **two independent FastAPI microservices** that communicate v
 
 - Run independent, parallelizable ML workloads
 - Maintain 4 PyTorch models in memory:
-  - **Face Embedding** — InsightFace buffalo_l (640×640 input → 512-d output)
-  - **Nudity Detection** — MobileNetV2 (2-class classifier)
+  - **Face Embedding** — AuraFace-v1 OR InsightFace's buffalo_l (640×640 input → 512-d output) based on the flag ML_SERVICE_FACE_MODEL set in .env
+  - **NSFW Detection** — MobileNetV2 (2-class classifier)
   - **Spoof Detection** — MobileNetV3-Large (liveness detection)
   - **Blur Detection** — ResNet18 (image quality assessment)
 - Expose HTTP endpoints for individual or combined inference
@@ -243,7 +243,7 @@ curl -X POST http://localhost:8000/v1/faces/insert \
   "requestId": "a1b2c3d4-e5f6-...",
   "imageQualityAssessment": {
     "passed": true,
-    "nudity": {"is_safe": true, "probability": 0.02},
+    "nsfw": {"is_safe": true, "probability": 0.02},
     "spoof": {"is_spoof": false, "probability": 0.05},
     "blur": {"is_sharp": true, "probability": 0.10}
   },
@@ -280,7 +280,7 @@ curl -X POST "http://localhost:8000/v1/faces/search?top_k=5" \
   "requestId": "d4e5f6a7-b8c9-...",
   "imageQualityAssessment": {
     "passed": true,
-    "nudity": {"is_safe": true, "probability": 0.01},
+    "nsfw": {"is_safe": true, "probability": 0.01},
     "spoof": {"is_spoof": false, "probability": 0.03},
     "blur": {"is_sharp": true, "probability": 0.08}
   },
@@ -378,12 +378,12 @@ curl http://localhost:8001/healthz
 # {"status": "ok"}
 ```
 
-#### Nudity Detection
+#### NSFW Detection
 
-Check if image contains nudity/NSFW content:
+Check if image contains NSFW content:
 
 ```bash
-curl -X POST http://localhost:8001/v1/nudity \
+curl -X POST http://localhost:8001/v1/nsfw \
   -H "Content-Type: application/json" \
   -d '{"image_b64": "..."}'
 ```
@@ -470,13 +470,13 @@ curl -X POST http://localhost:8001/v1/assess \
 ```json
 {
   "passed": true,
-  "nudity": {"is_safe": true, "probability": 0.02},
+  "nsfw": {"is_safe": true, "probability": 0.02},
   "spoof": {"is_spoof": false, "probability": 0.05},
   "blur": {"is_sharp": true, "probability": 0.10}
 }
 ```
 
-`passed` is `true` when: `nudity.is_safe AND (NOT spoof.is_spoof) AND blur.is_sharp`.
+`passed` is `true` when: `nsfw.is_safe AND (NOT spoof.is_spoof) AND blur.is_sharp`.
 
 ---
 
@@ -534,9 +534,9 @@ Copy `.env.example` to `.env` and customize. All settings use environment variab
 | `ML_SERVICE_HOST`                    | `0.0.0.0`                      | Bind host                                    |
 | `ML_SERVICE_PORT`                    | `8001`                         | Bind port                                    |
 | `ML_SERVICE_ML_DEVICE`               | `cpu`                          | Inference device: `cpu`, `cuda:0`, `mps`     |
-| `ML_SERVICE_NUDITY_LOCAL_MODEL_PATH` | `/app/models/nudity_model.pth` | Nudity model file                            |
-| `ML_SERVICE_NUDITY_HF_REPO_ID`       | ``                             | HuggingFace repo for nudity model (optional) |
-| `ML_SERVICE_NUDITY_THRESHOLD`        | `0.5`                          | Nudity classification threshold (0–1)        |
+| `ML_SERVICE_NSFW_LOCAL_MODEL_PATH` | `/app/models/nsfw_model.pth` | NSFW model file                            |
+| `ML_SERVICE_NSFW_HF_REPO_ID`       | ``                             | HuggingFace repo for NSFW model (optional) |
+| `ML_SERVICE_NSFW_THRESHOLD`        | `0.5`                          | NSFW classification threshold (0–1)        |
 | `ML_SERVICE_SPOOF_LOCAL_MODEL_PATH`  | `/app/models/spoof_model.pth`  | Spoof model file                             |
 | `ML_SERVICE_SPOOF_HF_REPO_ID`        | ``                             | HuggingFace repo for spoof model (optional)  |
 | `ML_SERVICE_SPOOF_THRESHOLD`         | `0.5`                          | Spoof classification threshold (0–1)         |
@@ -596,11 +596,11 @@ zepiris/
 │   │
 │   ├── ml_inference/
 │   │   ├── app.py              # ML service FastAPI app + MLServiceSettings
-│   │   ├── routes.py           # ML endpoints (/v1/nudity, /spoof, /blur, /embed, /assess)
+│   │   ├── routes.py           # ML endpoints (/v1/nsfw, /spoof, /blur, /embed, /assess)
 │   │   ├── deps.py             # ML service dependency injection (503 if model missing)
 │   │   ├── base.py             # Base ModelService + ModelServiceConfig
-│   │   ├── face_embedding.py   # FaceEmbeddingService (InsightFace)
-│   │   ├── nudity_detection.py # NudityDetectionService (MobileNetV2)
+│   │   ├── face_embedding.py   # FaceEmbeddingService (AuraFace OR Buffalo_l)
+│   │   ├── nsfw_detection.py   # NSFWDetectionService (MobileNetV2)
 │   │   ├── spoof_detection.py  # SpoofDetectionService (MobileNetV3)
 │   │   ├── blur_detection.py   # BlurDetectionService (ResNet18)
 │   │   ├── image_quality_assessment.py # Combined IQA (ThreadPoolExecutor)
@@ -618,7 +618,7 @@ zepiris/
 │       └── ml_inference.py     # FaceEmbeddingResult, IQA result schemas
 │
 └── models/                     # Pre-trained model weights
-    ├── nudity_model.pth
+    ├── nsfw_model.pth
     ├── spoof_model.pth
     └── blur_model.pth
 ```
@@ -672,7 +672,7 @@ Tests all ML endpoints with real model inference:
 ```bash
 python scripts/test_ml_service.py \
   --test-image path/to/image.jpg \
-  --nudity-model ./models/nudity_model.pth \
+  --nsfw-model ./models/nsfw_model.pth \
   --spoof-model ./models/spoof_model.pth \
   --blur-model ./models/blur_model.pth
 ```
@@ -692,7 +692,7 @@ Load and test models in-process without HTTP:
 ```bash
 python scripts/test_models.py \
   --test-image path/to/image.jpg \
-  --nudity-model ./models/nudity_model.pth \
+  --nsfw-model ./models/nsfw_model.pth \
   --spoof-model ./models/spoof_model.pth \
   --blur-model ./models/blur_model.pth
 ```
@@ -753,7 +753,7 @@ docker compose logs ml-inference  # if using Docker Compose
 poetry run zepiris-ml-inference-api       # if running locally
 ```
 
-Ensure model files exist at configured paths. Default: `/app/models/{nudity,spoof,blur}_model.pth`. If a model fails to load, that endpoint returns **503 Service Unavailable**.
+Ensure model files exist at configured paths. Default: `/app/models/{nsfw,spoof,blur}_model.pth`. If a model fails to load, that endpoint returns **503 Service Unavailable**.
 
 ### GPU Not Detected
 
@@ -797,7 +797,8 @@ poetry add torch torchvision --platform linux --python "^3.10"
 
 ### Additional Resources
 
-- [InsightFace Documentation](https://github.com/deepinsight/insightface) — Face embedding & detection
+- [AuraFace Documentation](https://huggingface.co/fal/AuraFace-v1) — Face embedding & detection model
+- [InsightFace Documentation](https://github.com/deepinsight/insightface) — Wrapper over the face embedding & detection model
 - [Milvus Vector Database](https://milvus.io/docs) — Vector storage & search
 - [MinIO S3 SDK](https://min.io/docs/minio/kubernetes/upstream/) — Object storage
 - [FastAPI Best Practices](https://fastapi.tiangolo.com/deployment/concepts/) — Web framework
@@ -818,7 +819,7 @@ If you use ZepIris in research or production, please cite:
 
 ```bibtex
 @software{zepiris2026,
-  title={ZepIris: Open-source face embedding and content safety microservice},
+  title={ZepIris: Scalable Face Authentication},
   author={Zepto Data Science Team},
   year={2026},
   url={https://github.com/zepto-labs/zepiris}
@@ -831,7 +832,7 @@ If you use ZepIris in research or production, please cite:
 
 ZepIris stands on the shoulders of excellent open-source projects:
 
-- **[InsightFace](https://github.com/deepinsight/insightface)** — State-of-the-art face embedding models
+- **[AuraFace](https://huggingface.co/fal/AuraFace-v1)** & **[InsightFace](https://github.com/deepinsight/insightface)** — State-of-the-art face embedding models
 - **[Milvus](https://milvus.io/)** — High-performance vector database
 - **[FastAPI](https://fastapi.tiangolo.com/)** — Modern async Python web framework
 - **[PyTorch](https://pytorch.org/)** — Deep learning framework

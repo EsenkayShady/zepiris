@@ -15,7 +15,7 @@ Usage:
         --spoof-model ./models/spoof_model.pth \
         --blur-model ./models/blur_model.pth
 
-    # Skip face embedding (if insightface not installed):
+    # Skip face embedding (if AuraFace OR Buffalo_l not installed):
     python scripts/test_ml_service.py \
         --test-image path/to/image.jpg \
         --nsfw-model ./models/nsfw_model.pth \

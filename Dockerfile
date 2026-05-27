@@ -24,7 +24,7 @@ RUN apt-get update \
         libxrender1 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml poetry.lock poetry.toml README.md ./
+COPY pyproject.toml poetry.lock poetry.toml README.md .env ./
 COPY zepiris/ zepiris/
 
 ARG POETRY_VERSION=2.1.3

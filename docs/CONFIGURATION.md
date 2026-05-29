@@ -165,7 +165,75 @@ ZEPIRIS_ML_INFERENCE_SERVICE_URL=http://localhost:8001
 
 ## Image quality (IQA)
 
-There are **no** `ZEPIRIS_IQA_*` knobs on the main API. Image quality is determined entirely by the **ml-inference** service (`POST /v1/iqa/assess`). Tune blur, NSFW, and spoof behavior with **`ML_SERVICE_*`** environment variables on that container (see `zepiris/ml_inference/app.py` and `.env.example`).
+There are **no** `ZEPIRIS_IQA_*` knobs on the main API. Image quality is determined entirely by the **ml-inference** service (`POST /v1/iqa/assess`). Tune blur, NSFW, and spoof behavior with **`ML_SERVICE_*`** environment variables on that container (see [ML Inference Service Configuration](#ml-inference-service-configuration) below).
+
+## ML Inference Service Configuration
+
+The ML inference microservice runs in a **separate container** with its own settings class (`MLServiceSettings` in `zepiris/ml_inference/app.py`). These variables use the **`ML_SERVICE_`** prefix (not `ZEPIRIS_`) and must be set on the ml-inference container.
+
+### Service Binding
+
+| Variable               | Default   | Description                                  |
+| ---------------------- | --------- | -------------------------------------------- |
+| `ML_SERVICE_HOST`      | `0.0.0.0` | Bind host                                    |
+| `ML_SERVICE_PORT`      | `8001`    | Bind port                                    |
+| `ML_SERVICE_ML_DEVICE` | `cpu`     | Inference device: `cpu`, `cuda:0`, `mps`     |
+
+### Face Embedding Model
+
+#### ML_SERVICE_FACE_MODEL
+**Type**: `str`
+**Default**: `"auraface"`
+**Accepted values**: `"auraface"`, `"buffalo_l"`
+**Description**: Selects which model is used for face detection and embedding generation. Both produce 512-dimensional embeddings.
+
+- `auraface` — uses [`fal/AuraFace-v1`](https://huggingface.co/fal/AuraFace-v1). Weights are downloaded from the HuggingFace Hub into `models/auraface` on first startup.
+- `buffalo_l` — uses InsightFace's `buffalo_l`. Downloaded via InsightFace's built-in mechanism on first startup.
+
+⚠️ **Licensing**: InsightFace's `buffalo_l` model weights are licensed for **non-commercial research purposes only**. Commercial use requires a separate license — contact `recognition-oss-pack@insightface.ai`. AuraFace-v1 is the default to avoid this restriction.
+
+```env
+# Default
+ML_SERVICE_FACE_MODEL=auraface
+
+# InsightFace buffalo_l (non-commercial research only)
+ML_SERVICE_FACE_MODEL=buffalo_l
+```
+
+> **Note**: An unsupported value raises a `ValueError` at startup. Currently only `cpu` inference is supported for face embedding regardless of `ML_SERVICE_ML_DEVICE`.
+
+| Variable                        | Default | Description                                              |
+| ------------------------------- | ------- | -------------------------------------------------------- |
+| `ML_SERVICE_FACE_EMBEDDING_DIM` | `512`   | Expected embedding dimension (must match Milvus dim)     |
+| `ML_SERVICE_FACE_DETECTION_WIDTH`  | `640`   | Face detection input width                            |
+| `ML_SERVICE_FACE_DETECTION_HEIGHT` | `640`   | Face detection input height                           |
+| `ML_SERVICE_FACE_AREA_THRESHOLD`   | `0.01`  | Minimum face area as a fraction of total image area   |
+
+### Content Safety Models
+
+Each safety model (NSFW, spoof, blur) follows the same configuration pattern. `*_MODEL_SOURCE` selects where weights load from (`local`, `hf`, or `auto`); `*_THRESHOLD` tunes the classification cutoff (0–1).
+
+| Variable                             | Default                        | Description                                  |
+| ------------------------------------ | ------------------------------ | -------------------------------------------- |
+| `ML_SERVICE_NSFW_MODEL_SOURCE`       | `auto`                         | Where to load NSFW weights (`local`/`hf`/`auto`) |
+| `ML_SERVICE_NSFW_LOCAL_MODEL_PATH`   | `/app/models/nsfw_model.pth`   | NSFW model file (local source)               |
+| `ML_SERVICE_NSFW_HF_REPO_ID`         | ``                             | HuggingFace repo for NSFW model (hf source)  |
+| `ML_SERVICE_NSFW_HF_MODEL_FILE`      | `nsfw_model.pth`               | NSFW model filename within the HF repo       |
+| `ML_SERVICE_NSFW_THRESHOLD`          | `0.5`                          | NSFW classification threshold (0–1)          |
+| `ML_SERVICE_SPOOF_MODEL_SOURCE`      | `auto`                         | Where to load spoof weights                  |
+| `ML_SERVICE_SPOOF_LOCAL_MODEL_PATH`  | `/app/models/spoof_model.pth`  | Spoof model file (local source)              |
+| `ML_SERVICE_SPOOF_HF_REPO_ID`        | ``                             | HuggingFace repo for spoof model (hf source) |
+| `ML_SERVICE_SPOOF_HF_MODEL_FILE`     | `spoof_model.pth`              | Spoof model filename within the HF repo      |
+| `ML_SERVICE_SPOOF_THRESHOLD`         | `0.5`                          | Spoof classification threshold (0–1)         |
+| `ML_SERVICE_BLUR_MODEL_SOURCE`       | `auto`                         | Where to load blur weights                   |
+| `ML_SERVICE_BLUR_LOCAL_MODEL_PATH`   | `/app/models/blur_model.pth`   | Blur model file (local source)               |
+| `ML_SERVICE_BLUR_HF_REPO_ID`         | ``                             | HuggingFace repo for blur model (hf source)  |
+| `ML_SERVICE_BLUR_HF_MODEL_FILE`      | `blur_model.pth`               | Blur model filename within the HF repo       |
+| `ML_SERVICE_BLUR_THRESHOLD`          | `0.5`                          | Blur classification threshold (0–1)          |
+
+`POST /v1/iqa/assess` returns `passed: true` when `nsfw.is_safe AND (NOT spoof.is_spoof) AND blur.is_sharp`.
+
+> **Note:** The default `*_THRESHOLD` values (`0.5`) are starting points, not universal settings. You should **tune the IQA models' thresholds against your own dataset and use case** — image characteristics (resolution, lighting, capture device), acceptable false-positive/false-negative trade-offs, and risk tolerance all vary by deployment. Run the models over a representative sample of your images, inspect the score distributions, and adjust each threshold to balance rejecting bad inputs against passing legitimate ones.
 
 ## Advanced Configuration
 
